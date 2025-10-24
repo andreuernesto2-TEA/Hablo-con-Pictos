@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hablo con Pictos</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f8ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px;
+      margin: 0;
+    }
+
+    h1 {
+      color: #0277d1;
+      text-align: center;
+    }
+
+    #escena-container {
+      width: 90%;
+      max-width: 500px;
+      height: 250px;
+      background: white;
+      border-radius: 16px;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    #imagen-escena {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    #frase-container {
+      font-size: 26px;
+      margin: 20px 0;
+      text-align: center;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #opciones-container {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .opcion {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px;
+      background: white;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      width: 110px;
+    }
+
+    .opcion:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .opcion .picto {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+
+    .opcion .texto {
+      font-size: 17px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #feedback {
+      margin: 20px 0;
+      font-size: 22px;
+      font-weight: bold;
+      min-height: 30px;
+      text-align: center;
+    }
+
+    button {
+      padding: 12px 28px;
+      font-size: 18px;
+      background: #0288d1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0277bd;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>✨ Hablo con Pictos ✨</h1>
+
+  <div id="escena-container">
+    <img id="imagen-escena" src="" alt="Escena ilustrativa">
+  </div>
+
+  <div id="frase-container">Cargando...</div>
+
+  <div id="opciones-container"></div>
+
+  <div id="feedback"></div>
+
+  <button id="btn-siguiente" style="display:none;">Siguiente frase</button>
+
+  <script>
+
+
+
+// ➕ AÑADIDO: Sonidos
+  const sonidoCorrecto = new Audio("https://www.sonidosmp3gratis.com/sounds/correct-ding.mp3");
+  const sonidoError = new Audio("https://www.sonidosmp3gratis.com/sounds/chicharra-error-incorrecto-.mp3");
+
+  // Para evitar que el sonido se corte o se repita mal
+  sonidoCorrecto.preload = "auto";
+  sonidoError.preload = "auto";
+
+
+
+
+  const frases = [
+    {
+      frase: "Papá, tengo ___",
+      correcta: "hambre",
+      distractores: ["colegio", "parque"],
+      imagenEscena: "https://i.ibb.co/B5sLXVzt/hambre.jpg",
+      pictos: ["🍽️", "🎒", "🌳"]
+    },
+    {
+      frase: "Mamá, necesito ir al ___",
+      correcta: "baño",
+      distractores: ["jardín", "dormir"],
+      imagenEscena: "https://i.ibb.co/bjyBT67t/ba-o.jpg",
+      pictos: ["🚽", "🌼", "🛏️"]
+    },
+    {
+      frase: "Estoy ___",
+      correcta: "feliz",
+      distractores: ["lloviendo", "silla"],
+      imagenEscena: "https://i.ibb.co/fzkNW9WF/feliz.jpg",
+      pictos: ["😊", "🌧️", "🪑"]
+    },
+    {
+      frase: "Estoy ___ ",
+      correcta: "triste",
+      distractores: ["pelota", "barco"],
+      imagenEscena: "https://i.ibb.co/KjrwRMBr/triste.jpg",
+      pictos: ["😢", "🏀", "⛵"]
+    },
+
+    {
+      frase: "Quiero jugar en el ___",
+      correcta: "parque",
+      distractores: ["zapato", "mesa"],
+      imagenEscena: "https://i.ibb.co/DPCwxG5V/parque.jpg",
+      pictos: ["🌳", "👟", "🪵"]
+    }
+  ];
+
+// ➕ Progreso siempre en cero al abrir la página
+let progreso = {
+  aciertos: 0,
+  totalIntentos: 0
+};
+
+
+  let fraseActual = null;
+  const synth = window.speechSynthesis;
+
+  function mezclarOpciones(correcta, distractores, pictosCorrecto, pictosDistractores) {
+    const opciones = [correcta, ...distractores];
+    const pictos = [pictosCorrecto, ...pictosDistractores];
+    const mezcla = [];
+    for (let i = 0; i < opciones.length; i++) {
+      mezcla.push({ palabra: opciones[i], picto: pictos[i] });
+    }
+    for (let i = mezcla.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [mezcla[i], mezcla[j]] = [mezcla[j], mezcla[i]];
+    }
+    return mezcla;
+  }
+
+  function leerFrase(texto) {
+    if (synth.speaking) synth.cancel();
+    const utterance = new SpeechSynthesisUtterance(texto);
+    utterance.lang = 'es-ES';
+    utterance.rate = 0.8;
+    utterance.pitch = 1.0;
+    synth.speak(utterance);
+  }
+
+  function mostrarFrase() {
+    const indice = Math.floor(Math.random() * frases.length);
+    fraseActual = frases[indice];
+
+    document.getElementById("imagen-escena").src = fraseActual.imagenEscena;
+
+    // Frase con hueco visual
+    const fraseConHueco = fraseActual.frase.replace("___", "_______");
+    document.getElementById("frase-container").innerHTML = `
+      ${fraseConHueco}
+      <button id="btn-repetir" title="Repetir frase" style="
+        margin-left: 12px;
+        padding: 6px 10px;
+        background: #81d4fa;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        color: #01579b;
+      ">🔊</button>
+    `;
+
+    // Leer frase incompleta
+    leerFrase(fraseActual.frase.replace("___", ""));
+
+    document.getElementById("feedback").textContent = "";
+    document.getElementById("btn-siguiente").style.display = "none";
+
+    // Mostrar progreso
+    document.getElementById("progreso").textContent = 
+      `✅ Aciertos: ${progreso.aciertos} | 📊 Intentos: ${progreso.totalIntentos}`;
+
+    // Renderizar opciones
+    const contenedor = document.getElementById("opciones-container");
+    contenedor.innerHTML = "";
+
+    const opcionesMezcladas = mezclarOpciones(
+      fraseActual.correcta,
+      fraseActual.distractores,
+      fraseActual.pictos[0],
+      fraseActual.pictos.slice(1)
+    );
+
+    opcionesMezcladas.forEach(op => {
+      const div = document.createElement("div");
+      div.className = "opcion";
+      div.innerHTML = `
+        <div class="picto">${op.picto}</div>
+        <div class="texto">${op.palabra}</div>
+      `;
+      div.addEventListener("click", () => verificarRespuesta(op.palabra));
+      contenedor.appendChild(div);
+    });
+
+    // Añadir evento al botón de repetir (debe hacerse después de insertarlo)
+    const btnRepetir = document.getElementById("btn-repetir");
+    if (btnRepetir) {
+      btnRepetir.addEventListener("click", (e) => {
+        e.stopPropagation();
+        leerFrase(fraseActual.frase.replace("___", ""));
+      });
+    }
+  }
+
+  
+
+
+
+
+
+
+function verificarRespuesta(seleccion) {
+  progreso.totalIntentos++;
+  const esCorrecto = seleccion === fraseActual.correcta;
+
+  if (esCorrecto) {
+    progreso.aciertos++;
+    
+    // ➕ ACTUALIZAR LA FRASE EN PANTALLA: reemplazar ________ por la palabra correcta
+    const fraseCompleta = fraseActual.frase.replace("___", seleccion);
+    document.getElementById("frase-container").innerHTML = `
+      ${fraseCompleta}
+      <button id="btn-repetir" title="Repetir frase" style="
+        margin-left: 12px;
+        padding: 6px 10px;
+        background: #81d4fa;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        color: #01579b;
+      ">🔊</button>
+    `;
+    
+    document.getElementById("feedback").textContent = "¡Muy bien! 🌟";
+    document.getElementById("feedback").style.color = "#2e7d32";
+    
+    // Sonido y voz
+    sonidoCorrecto.currentTime = 0;
+    sonidoCorrecto.play().catch(e => console.log("Audio correcto bloqueado:", e));
+    leerFrase(`¡Muy bien! ${fraseCompleta}`);
+  } else {
+
+    sonidoError.currentTime = 0;
+    sonidoError.play().catch(e => console.log("Audio error bloqueado:", e));
+    document.getElementById("feedback").textContent = "Mira la imagen";
+    document.getElementById("feedback").style.color = "#d32f2f";
+    leerFrase("............Incorrecto ........... mira la imagen.");
+    //localStorage.setItem("progresoHabloPictos", JSON.stringify(progreso));
+    return;
+  }
+
+  //localStorage.setItem("progresoHabloPictos", JSON.stringify(progreso));
+
+  // Desactivar opciones
+  document.querySelectorAll(".opcion").forEach(el => {
+    el.style.pointerEvents = "none";
+    if (el.querySelector(".texto").textContent === seleccion) {
+      el.style.backgroundColor = "#c8e6c9";
+    }
+  });
+
+  // Reasignar evento al botón de repetir (porque se regeneró el HTML)
+  const btnRepetir = document.getElementById("btn-repetir");
+  if (btnRepetir) {
+    btnRepetir.addEventListener("click", (e) => {
+      e.stopPropagation();
+      leerFrase(fraseCompleta); // ahora usa la frase completa
+    });
+  }
+
+  document.getElementById("btn-siguiente").style.display = "block";
+}
+
+
+
+
+  // Añadir contenedor de progreso si no existe
+  if (!document.getElementById("progreso")) {
+    const progresoDiv = document.createElement("div");
+    progresoDiv.id = "progreso";
+    progresoDiv.style.cssText = "margin: 10px 0; font-size: 16px; color: #0277d1; font-weight: bold; text-align: center;";
+    document.body.insertBefore(progresoDiv, document.querySelector("#escena-container"));
+  }
+
+  document.getElementById("btn-siguiente").addEventListener("click", mostrarFrase);
+
+  window.onload = mostrarFrase;
+
+
+
+// ➕ FUNCIÓN PARA REINICIAR EL PROGRESO
+function reiniciarProgreso() {
+  if (confirm("¿Seguro que quieres reiniciar el marcador?")) {
+    progreso = { aciertos: 0, totalIntentos: 0 };
+    //localStorage.setItem("progresoHabloPictos", JSON.stringify(progreso));
+    document.getElementById("progreso").textContent = 
+      `✅ Aciertos: ${progreso.aciertos} | 📊 Intentos: ${progreso.totalIntentos}`;
+  }
+}
+// ➕ CREAR Y AÑADIR EL BOTÓN DE REINICIO
+const btnReiniciarContador = document.createElement("button");
+btnReiniciarContador.textContent = "🔄 Reiniciar marcador";
+btnReiniciarContador.style.cssText = `
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #ffcc80;
+  color: #e65100;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+`;
+btnReiniciarContador.addEventListener("click", reiniciarProgreso);
+
+// Insertar el botón justo después del contador de progreso
+const progresoDiv = document.getElementById("progreso");
+if (progresoDiv) {
+  progresoDiv.parentNode.insertBefore(btnReiniciarContador, progresoDiv.nextSibling);
+}
+
+
+</script>
+</body>
+</html>
